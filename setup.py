@@ -28,4 +28,5 @@ setup(name='cryptory',
         'pandas>=0.23.0',
         'numpy>=1.14.0',
         'pytrends>=4.4.0',
-        'beautifulsoup4>=4.0.0'])
+        'beautifulsoup4>=4.0.0',
+        'pycoingecko>=1.4.0'])

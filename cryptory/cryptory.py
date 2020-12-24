@@ -13,6 +13,9 @@ import re
 import json
 from bs4 import BeautifulSoup
 from pytrends.request import TrendReq
+from pycoingecko import CoinGeckoAPI
+
+cg = CoinGeckoAPI()
 
 class Cryptory():
     
@@ -47,6 +50,16 @@ class Cryptory():
         self.fillgaps = fillgaps
         self.timeout = timeout
         self._df = pd.DataFrame({'date':pd.date_range(start=self.from_date, end=self.to_date)})
+    
+    def to_backtesting_df(self, df, inplace=False):
+        if inplace:
+            output = df
+        else:
+            output = df.copy()
+        output.columns = [col.capitalize() for col in output.columns]
+        output.set_index(pd.DatetimeIndex(output["Date"]), inplace=True)
+        output.drop("Date", axis=1, inplace=True)
+        return output
         
     def extract_reddit_metrics(self, subreddit, metric, col_label="", sub_col=False):
         """Retrieve daily subscriber data for a specific subreddit scraped from redditmetrics.com
@@ -138,6 +151,35 @@ class Cryptory():
         output.columns = [re.sub(r"[^a-z]", "", col.lower()) for col in output.columns]
         if coin_col:
             output['coin'] = coin
+        return output
+    
+    def extract_coingecko(self, coin, vs_currency, days, coin_col=False, backtesting_df=True):
+        """Retrieve basic historical information for a specific cryptocurrency from coingecko.com
+        
+        Parameters
+        ----------
+        coin : the name of the cryptocurrency (e.g. 'bitcoin', 'ethereum', 'dentacoin')
+        vs_currency : The target currency of market data (usd, eur, jpy, etc.)
+        days : Data up to number of days ago (1/7/14/30/90/180/365/max)
+            
+        Returns
+        -------
+        pandas Dataframe
+        """
+        try:
+            lst = cg.get_coin_ohlc_by_id(coin, vs_currency, days)
+        except:
+            # future versions may split out the different exceptions (e.g. timeout)
+            raise
+        output = pd.DataFrame(lst, columns =['date', 'open', 'high', 'low', 'close'])
+        output = output.assign(date=pd.to_datetime(output['date'].astype(int), unit='ms'))
+
+        if coin_col:
+            output['coin'] = coin
+        
+        if backtesting_df:
+            self.to_backtesting_df(output, inplace=True)
+
         return output
     
     def extract_bitinfocharts(self, coin, metric="price", coin_col=False, metric_col=False):
